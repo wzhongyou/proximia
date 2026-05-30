@@ -570,8 +570,8 @@ func (db *VectorDatabase) Search(collectionName string, query []float64, k int, 
 		return nil, fmt.Errorf("k must be positive")
 	}
 	db.mu.RLock()
+	defer db.mu.RUnlock()
 	collection, ok := db.collections[collectionName]
-	db.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("collection %q not found", collectionName)
 	}
@@ -584,8 +584,8 @@ func (db *VectorDatabase) HybridSearch(collectionName string, query []float64, t
 		return nil
 	}
 	db.mu.RLock()
+	defer db.mu.RUnlock()
 	collection, ok := db.collections[collectionName]
-	db.mu.RUnlock()
 	if !ok {
 		return nil
 	}
