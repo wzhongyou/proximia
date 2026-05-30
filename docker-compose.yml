@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  proximia:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - proximia-data:/data
+    environment:
+      - PROXIMIA_ADDR=:8080
+      - PROXIMIA_WAL_PATH=/data/proximia.wal
+      - PROXIMIA_SNAPSHOT_PATH=/data/snapshot.json
+      - PROXIMIA_SNAPSHOT_INTERVAL=300
+      - PROXIMIA_LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 2s
+
+volumes:
+  proximia-data:

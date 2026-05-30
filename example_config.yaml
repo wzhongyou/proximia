@@ -1,0 +1,45 @@
+# Proximia Configuration Example
+# Copy this file and modify for your deployment.
+
+server:
+  # HTTP listen address (default: ":8080")
+  addr: ":8080"
+
+  # Read/write timeouts in seconds (default: 30)
+  read_timeout: 30
+  write_timeout: 30
+
+  # API key authentication (optional)
+  # Set one or more keys to enable auth. Clients must send
+  # X-API-Key header or ?api_key= query parameter.
+  api_keys: []
+  # api_keys:
+  #   - "my-secret-key"
+  #   - "another-key"
+
+  # CORS allowed origins (optional, empty = allow all)
+  cors_origins: []
+  # cors_origins:
+  #   - "http://localhost:3000"
+
+  # Maximum concurrent requests (default: 100)
+  max_concurrent: 100
+
+database:
+  # WAL (Write-Ahead Log) file path (default: "proximia.wal")
+  wal_path: "proximia.wal"
+
+  # Snapshot file path (optional)
+  # Loading a snapshot on restart speeds up recovery.
+  snapshot_path: ""
+
+  # Automatic snapshot interval in seconds (0 = disabled)
+  snapshot_interval: 0
+  # snapshot_interval: 300  # every 5 minutes
+
+logging:
+  # Log level: "debug", "info", "warn", "error" (default: "info")
+  level: "info"
+
+  # Human-readable log format (default: false = JSON)
+  pretty: false
