@@ -1,10 +1,6 @@
-// Proximia Console — Full Capability Verification
 const API = '';
-const FIELD_TYPES = ['string','float','int','bool','text','geo'];
 let schemaFields = [];
-let collectionsCache = [];
 
-// --- Navigation ---
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
@@ -13,20 +9,16 @@ function switchView(name) {
   document.querySelector(`.nav-btn[data-view="${name}"]`).classList.add('active');
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(`view-${name}`).classList.add('active');
+  if (name === 'collections' || name === 'dashboard') refreshCollections();
+  if (name === 'monitor') refreshMonitor();
 }
 
-// --- Search mode toggle ---
-document.getElementById('sr-mode').addEventListener('change', function() {
+document.getElementById('sr-mode')?.addEventListener('change', function() {
   document.getElementById('sr-txt-row').style.display = this.value === 'hybrid' ? '' : 'none';
   document.getElementById('sr-alpha').style.display = this.value === 'hybrid' ? '' : 'none';
+  document.getElementById('sr-alpha-label').style.display = this.value === 'hybrid' ? '' : 'none';
 });
 
-// --- API method toggle ---
-document.getElementById('api-method').addEventListener('change', function() {
-  document.getElementById('api-body').style.display = this.value === 'POST' ? '' : 'none';
-});
-
-// --- Helpers ---
 async function api(method, path, body) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
   if (body !== undefined) opts.body = JSON.stringify(body);
@@ -36,247 +28,184 @@ async function api(method, path, body) {
   catch(e) { return { ok: res.ok, data: text, status: res.status }; }
 }
 function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function short(v) { return typeof v === 'number' ? v.toFixed(4) : esc(JSON.stringify(v)); }
 
-// --- Populate collection dropdowns ---
+// ======================== DEMO ========================
+async function loadDemo() {
+  const btn = document.querySelector('#demo-status').previousElementSibling;
+  btn.disabled = true; btn.textContent = 'Loading...';
+  document.getElementById('demo-status').textContent = '';
+  try {
+    const r1 = await api('POST', '/collections', {
+      name:'products', metric:'cosine', enable_index:true, index_type:'hnsw',
+      schema:{ fields:[
+        {name:'category',type:'string',indexable:true},
+        {name:'price',type:'float'},
+        {name:'name',type:'text'},
+        {name:'rating',type:'float'}
+      ]}
+    });
+    if (!r1.ok && !r1.data?.error?.includes('already exists')) throw new Error(r1.data?.error);
+    const items = [
+      {name:'Wireless Mouse',cat:'electronics',price:29.99,rating:4.5,vec:[0.15,0.72,0.33,0.50]},
+      {name:'Running Shoes',cat:'sports',price:89.99,rating:4.2,vec:[0.88,0.12,0.45,0.30]},
+      {name:'Coffee Maker',cat:'home',price:49.99,rating:4.7,vec:[0.45,0.55,0.78,0.20]},
+      {name:'USB-C Hub',cat:'electronics',price:39.99,rating:4.3,vec:[0.22,0.68,0.40,0.55]},
+      {name:'Yoga Mat',cat:'sports',price:19.99,rating:4.0,vec:[0.75,0.25,0.30,0.45]},
+      {name:'Desk Lamp',cat:'home',price:35.99,rating:4.6,vec:[0.35,0.60,0.70,0.25]},
+      {name:'Bluetooth Speaker',cat:'electronics',price:59.99,rating:4.4,vec:[0.18,0.75,0.38,0.52]},
+      {name:'Water Bottle',cat:'sports',price:14.99,rating:4.1,vec:[0.80,0.18,0.28,0.48]},
+      {name:'Throw Blanket',cat:'home',price:24.99,rating:4.8,vec:[0.40,0.52,0.75,0.22]},
+      {name:'Laptop Stand',cat:'electronics',price:45.99,rating:4.3,vec:[0.20,0.70,0.35,0.53]},
+    ];
+    const docs = items.map(p => ({ id:p.name.toLowerCase().replace(/\s/g,'_'), vector:p.vec, metadata:{ name:p.name, category:p.cat, price:p.price, rating:p.rating } }));
+    await api('POST', '/collections/products/batch-upsert', { documents: docs });
+    document.getElementById('demo-status').textContent = `✅ 10 products loaded with HNSW index`;
+    refreshCollections();
+  } catch(e) { document.getElementById('demo-status').textContent = '❌ '+e.message; }
+  btn.disabled = false; btn.textContent = 'Load Demo Data';
+}
+
+// ======================== COLLECTIONS ========================
 async function refreshCollections() {
   const r = await api('GET', '/collections');
-  collectionsCache = r.ok ? r.data : [];
-  ['dash-table','da-collection','sr-collection','rc-col','ix-col','ex-col'].forEach(id => {
+  const cols = r.ok ? r.data : [];
+  document.getElementById('dash-collections').textContent = cols.length;
+  document.getElementById('dash-vectors').textContent = cols.reduce((s,c) => s+(c.count||0), 0).toLocaleString();
+  document.getElementById('dash-indexed').textContent = cols.filter(c=>c.index_type).length+'/'+cols.length;
+  document.getElementById('mon-collections').textContent = cols.length;
+  document.getElementById('mon-vectors').textContent = cols.reduce((s,c) => s+(c.count||0), 0).toLocaleString();
+  document.getElementById('mon-indexed').textContent = cols.filter(c=>c.index_type).length+'/'+cols.length;
+
+  const tb = document.getElementById('collections-table');
+  tb.innerHTML = cols.length ? cols.map(c => `<tr><td><strong>${esc(c.name)}</strong></td><td>${c.count}</td><td>${c.dimension||'—'}</td><td>${esc(c.metric)}</td><td>${c.index_type?'<span class="badge">'+esc(c.index_type)+'</span>':'—'}</td><td>${c.schema?'✅':'—'}</td></tr>`).join('') : '<tr><td colspan="6">No collections</td></tr>';
+
+  ['da-collection','sr-collection','rc-col','ix-col'].forEach(id => {
     const sel = document.getElementById(id);
-    if (!sel || sel.tagName !== 'SELECT') return;
-    sel.innerHTML = collectionsCache.map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${c.count})</option>`).join('');
+    if (!sel) return;
+    sel.innerHTML = cols.map(c => `<option value="${esc(c.name)}">${esc(c.name)} (${c.count})</option>`).join('');
   });
-  // Dashboard
-  const total = collectionsCache.reduce((s,c) => s + (c.count||0), 0);
-  const indexed = collectionsCache.filter(c => c.index_type).length;
-  document.getElementById('dash-collections').textContent = collectionsCache.length;
-  document.getElementById('dash-vectors').textContent = total.toLocaleString();
-  document.getElementById('dash-indexed').textContent = indexed + '/' + collectionsCache.length;
-  const tbody = document.getElementById('dash-table');
-  if (!collectionsCache.length) { tbody.innerHTML = '<tr><td colspan="5">No collections</td></tr>'; return; }
-  tbody.innerHTML = collectionsCache.map(c => `<tr><td><strong>${esc(c.name)}</strong></td><td>${c.count}</td><td>${c.dimension||'—'}</td><td>${esc(c.metric)}</td><td>${c.index_type ? '<span class="badge">'+esc(c.index_type)+'</span>' : '—'}</td></tr>`).join('');
-  return collectionsCache;
 }
 
-// ======================== SCHEMA DESIGNER ========================
+// ======================== SCHEMA ========================
 function addField() {
   const name = document.getElementById('sf-name').value.trim();
-  if (!name) { alert('Field name required'); return; }
-  if (schemaFields.find(f => f.name === name)) { alert('Field already exists'); return; }
-  schemaFields.push({ name, type: document.getElementById('sf-type').value, indexable: document.getElementById('sf-indexable').checked });
-  document.getElementById('sf-name').value = '';
-  document.getElementById('sf-indexable').checked = false;
-  renderSchemaFields();
+  if (!name) return alert('Name required');
+  if (schemaFields.find(f=>f.name===name)) return alert('Duplicate');
+  schemaFields.push({name, type:document.getElementById('sf-type').value, indexable:document.getElementById('sf-indexable').checked});
+  document.getElementById('sf-name').value = ''; document.getElementById('sf-indexable').checked = false;
+  document.getElementById('sc-fields-body').innerHTML = schemaFields.map((f,i) => `<tr><td>${esc(f.name)}</td><td><span class="badge">${esc(f.type)}</span></td><td>${f.indexable?'✅':'—'}</td><td><button class="danger" onclick="removeField(${i})" style="padding:0.15rem 0.4rem;font-size:0.75rem">✕</button></td></tr>`).join('') || '<tr><td colspan="3">Add fields</td></tr>';
 }
-function removeField(i) { schemaFields.splice(i,1); renderSchemaFields(); }
-function renderSchemaFields() {
-  const tb = document.getElementById('sc-fields-body');
-  if (!schemaFields.length) { tb.innerHTML = '<tr><td colspan="3">Use the form below to add fields</td></tr>'; return; }
-  tb.innerHTML = schemaFields.map((f,i) => `<tr><td>${esc(f.name)}</td><td><span class="badge">${esc(f.type)}</span></td><td>${f.indexable ? '✅' : '—'}</td><td><button onclick="removeField(${i})" class="danger" style="padding:0.2rem 0.5rem">✕</button></td></tr>`).join('');
-}
+function removeField(i) { schemaFields.splice(i,1); document.getElementById('sc-fields-body').innerHTML = schemaFields.length ? schemaFields.map((f,i) => `<tr>...`).join('') : '<tr><td colspan="3">Add fields</td></tr>'; }
 async function createWithSchema() {
   const name = document.getElementById('sc-name').value.trim();
-  if (!name) { alert('Collection name required'); return; }
-  const metric = document.getElementById('sc-metric').value;
-  const enableIndex = document.getElementById('sc-index').checked;
-  const body = { name, metric, enable_index: enableIndex };
-  if (schemaFields.length) body.schema = { fields: schemaFields.map(f => ({ name: f.name, type: f.type, indexable: f.indexable })) };
+  if (!name) return alert('Name required');
+  const body = {name, metric:document.getElementById('sc-metric').value, enable_index:document.getElementById('sc-index').checked};
+  if (schemaFields.length) body.schema = {fields:schemaFields.map(f=>({name:f.name,type:f.type,indexable:f.indexable}))};
   const r = await api('POST', '/collections', body);
-  document.getElementById('sc-result').textContent = JSON.stringify(r.data, null, 2);
-  if (r.ok) { schemaFields = []; renderSchemaFields(); refreshCollections(); }
+  document.getElementById('sc-result').textContent = JSON.stringify(r.data,null,2);
+  if (r.ok) { schemaFields=[]; document.getElementById('sc-fields-body').innerHTML='<tr><td colspan="3">Add fields</td></tr>'; refreshCollections(); }
 }
 
-// ======================== DATA MANAGER ========================
+// ======================== DATA ========================
 async function loadDataDocs() {
   const col = document.getElementById('da-collection').value;
   if (!col) return;
   const r = await api('GET', '/collections');
-  if (!r.ok) return;
-  const c = r.data.find(x => x.name === col);
-  document.getElementById('da-stats').textContent = c ? `count=${c.count} dim=${c.dimension||'?'} metric=${c.metric}` : '';
+  const c = r.data?.find(x=>x.name===col);
+  document.getElementById('da-stats').textContent = c ? `Count: ${c.count} | Dim: ${c.dimension||'?'} | Metric: ${c.metric}` : '';
 }
 async function doUpsert() {
-  const col = document.getElementById('da-collection').value;
-  const id = document.getElementById('da-id').value.trim();
-  const vecStr = document.getElementById('da-vec').value.trim();
-  const metaStr = document.getElementById('da-meta').value.trim();
-  if (!col || !id || !vecStr) { alert('Collection, ID, and vector required'); return; }
-  const vector = vecStr.split(',').map(s => parseFloat(s.trim()));
-  if (vector.some(isNaN)) { alert('Invalid vector'); return; }
+  const col = document.getElementById('da-collection').value, id = document.getElementById('da-id').value.trim();
+  const vec = document.getElementById('da-vec').value.trim().split(',').map(s=>parseFloat(s.trim()));
+  const meta = document.getElementById('da-meta').value.trim();
+  if (!col||!id||vec.some(isNaN)) return alert('Collection, ID, and vector required');
   let metadata = {};
-  if (metaStr) { try { metadata = JSON.parse(metaStr); } catch(e) { alert('Invalid metadata JSON'); return; } }
-  const r = await api('POST', `/collections/${encodeURIComponent(col)}/upsert`, { id, vector, metadata });
-  document.getElementById('da-result').textContent = JSON.stringify(r.data, null, 2);
+  if (meta) { try{metadata=JSON.parse(meta)}catch(e){return alert('Invalid metadata JSON')} }
+  const r = await api('POST', `/collections/${encodeURIComponent(col)}/upsert`, {id,vector:vec,metadata});
+  document.getElementById('da-result').textContent = JSON.stringify(r.data,null,2);
   if (r.ok) { loadDataDocs(); refreshCollections(); }
 }
 async function doBatchUpsert() {
-  const col = document.getElementById('da-collection').value;
-  const raw = document.getElementById('da-batch').value.trim();
-  if (!col || !raw) { alert('Collection and documents required'); return; }
-  let docs; try { docs = JSON.parse(raw); } catch(e) { alert('Invalid JSON: '+e.message); return; }
-  if (!Array.isArray(docs)) { alert('Must be an array'); return; }
-  const r = await api('POST', `/collections/${encodeURIComponent(col)}/batch-upsert`, { documents: docs });
-  document.getElementById('da-batch-result').textContent = JSON.stringify(r.data, null, 2);
+  const col = document.getElementById('da-collection').value, raw = document.getElementById('da-batch').value.trim();
+  if (!col||!raw) return alert('Required');
+  let docs; try{docs=JSON.parse(raw)}catch(e){return alert('Invalid JSON: '+e.message)}
+  const r = await api('POST', `/collections/${encodeURIComponent(col)}/batch-upsert`, {documents:docs});
+  document.getElementById('da-batch-result').textContent = JSON.stringify(r.data,null,2);
   if (r.ok) { loadDataDocs(); refreshCollections(); }
 }
 
-// ======================== SEARCH LAB ========================
+// ======================== SEARCH ========================
 async function doSearch() {
-  const col = document.getElementById('sr-collection').value;
-  const mode = document.getElementById('sr-mode').value;
-  const k = parseInt(document.getElementById('sr-k').value) || 5;
-  if (!col) { alert('Select a collection'); return; }
+  const col = document.getElementById('sr-collection').value, mode = document.getElementById('sr-mode').value;
+  const k = parseInt(document.getElementById('sr-k').value)||5;
+  if (!col) return alert('Select collection');
+  const vec = document.getElementById('sr-vec').value.trim().split(',').map(s=>parseFloat(s.trim()));
+  if (vec.some(isNaN)) return alert('Invalid vector');
+  let filter = {};
+  const fs = document.getElementById('sr-filter').value.trim();
+  if (fs) { try{filter=JSON.parse(fs)}catch(e){return alert('Invalid filter JSON')} }
 
-  if (mode === 'vector') {
-    const vec = document.getElementById('sr-vec').value.trim().split(',').map(s => parseFloat(s.trim()));
-    if (vec.some(isNaN)) { alert('Invalid query vector'); return; }
-    let filter = {};
-    const filterStr = document.getElementById('sr-filter').value.trim();
-    if (filterStr) { try { filter = JSON.parse(filterStr); } catch(e) { alert('Invalid filter JSON'); return; } }
-    const r = await api('POST', `/collections/${encodeURIComponent(col)}/search`, { query: vec, k, filter });
-    renderSearchResults(r.data);
+  let r;
+  if (mode==='hybrid') {
+    const txt = document.getElementById('sr-txt').value.trim();
+    if (!txt) return alert('Text query required');
+    r = await api('POST', `/collections/${encodeURIComponent(col)}/hybrid-search`, {query:vec,text_query:txt,k,alpha:parseFloat(document.getElementById('sr-alpha').value)||0.5,filter});
   } else {
-    const vec = document.getElementById('sr-vec').value.trim().split(',').map(s => parseFloat(s.trim()));
-    if (vec.some(isNaN)) { alert('Invalid query vector'); return; }
-    const text = document.getElementById('sr-txt').value.trim();
-    if (!text) { alert('Text query required for hybrid search'); return; }
-    const alpha = parseFloat(document.getElementById('sr-alpha').value) || 0.5;
-    let filter = {};
-    const filterStr = document.getElementById('sr-filter').value.trim();
-    if (filterStr) { try { filter = JSON.parse(filterStr); } catch(e) { alert('Invalid filter JSON'); return; } }
-    const r = await api('POST', `/collections/${encodeURIComponent(col)}/hybrid-search`, { query: vec, text_query: text, k, alpha, filter });
-    renderSearchResults(r.data);
+    r = await api('POST', `/collections/${encodeURIComponent(col)}/search`, {query:vec,k,filter});
   }
-}
-function renderSearchResults(data) {
-  const area = document.getElementById('sr-results');
-  const body = document.getElementById('sr-body');
-  const bars = document.getElementById('sr-bars');
-  const stats = document.getElementById('sr-stats');
-  const results = data.results || [];
-  area.style.display = '';
-  stats.textContent = `${results.length} results in ${((data.total_time_ns||0)/1e6).toFixed(2)}ms${data.index_used ? ' | index: '+data.index_used : ''}`;
-  if (!results.length) { body.innerHTML = '<tr><td colspan="4">No results</td></tr>'; bars.innerHTML = ''; return; }
-  body.innerHTML = results.map((r,i) => `<tr><td>${i+1}</td><td><strong>${esc(r.id)}</strong></td><td>${r.score.toFixed(6)}</td><td>${r.document && r.document.metadata ? esc(JSON.stringify(r.document.metadata)) : '—'}</td></tr>`).join('');
-  const maxS = Math.max(...results.map(r=>r.score)), minS = Math.min(...results.map(r=>r.score)), range = maxS-minS||1;
-  bars.innerHTML = '<h3>Score Distribution</h3>'+results.map(r => {
-    const pct = ((r.score-minS)/range*100);
-    return `<div class="score-bar"><span class="score-bar-label">${esc(r.id)}</span><div class="score-bar-fill" style="width:${Math.max(pct,2)}%"></div><span>${r.score.toFixed(4)}</span></div>`;
-  }).join('');
+  const results = r.data.results||[];
+  document.getElementById('sr-results').style.display = '';
+  document.getElementById('sr-stats').textContent = `${results.length} results | ${((r.data.total_time_ns||0)/1e6).toFixed(2)}ms${r.data.index_used ? ' | '+r.data.index_used : ''}`;
+  if (!results.length) { document.getElementById('sr-body').innerHTML = '<tr><td colspan="4">No results</td></tr>'; document.getElementById('sr-bars').innerHTML = ''; return; }
+  document.getElementById('sr-body').innerHTML = results.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${esc(r.id)}</strong></td><td>${r.score.toFixed(4)}</td><td style="font-size:0.82rem">${r.document?.metadata?esc(JSON.stringify(r.document.metadata)):'—'}</td></tr>`).join('');
+  const ms=Math.max(...results.map(r=>r.score)), ns=Math.min(...results.map(r=>r.score)), rg=ms-ns||1;
+  document.getElementById('sr-bars').innerHTML = '<div style="font-size:0.85rem;font-weight:600;margin-bottom:0.5rem">Score Distribution</div>'+results.map(r=>`<div class="score-bar"><span class="score-bar-label">${esc(r.id)}</span><div class="score-bar-fill" style="width:${Math.max((r.score-ns)/rg*100,2)}%"></div><span>${r.score.toFixed(4)}</span></div>`).join('');
 }
 
-// ======================== RECALL ANALYZER ========================
+// ======================== MONITOR ========================
+async function refreshMonitor() { await refreshCollections(); }
 async function doRecall() {
-  const col = document.getElementById('rc-col').value;
-  const vec = document.getElementById('rc-vec').value.trim().split(',').map(s => parseFloat(s.trim()));
-  const k = parseInt(document.getElementById('rc-k').value) || 10;
-  if (!col || vec.some(isNaN)) { alert('Valid collection and query vector required'); return; }
-  const r = await api('POST', `/collections/${encodeURIComponent(col)}/recall`, { query: vec, k });
-  if (!r.ok) { alert('Error: '+JSON.stringify(r.data)); return; }
+  const col = document.getElementById('rc-col').value, vec = document.getElementById('rc-vec').value.trim().split(',').map(s=>parseFloat(s.trim()));
+  const k = parseInt(document.getElementById('rc-k').value)||10;
+  if (!col||vec.some(isNaN)) return alert('Required');
+  const r = await api('POST', `/collections/${encodeURIComponent(col)}/recall`, {query:vec,k});
+  if (!r.ok) return alert(JSON.stringify(r.data));
   const d = r.data;
-
-  // Metrics
   document.getElementById('rc-metrics').style.display = '';
   document.getElementById('rc-recall-val').textContent = (d.recall*100).toFixed(1)+'%';
   document.getElementById('rc-ann-lat').textContent = (d.ann_time_ns/1e3).toFixed(1);
   document.getElementById('rc-bf-lat').textContent = (d.bf_time_ns/1e3).toFixed(1);
-  const speedup = d.bf_time_ns > 0 && d.ann_time_ns > 0 ? (d.bf_time_ns/d.ann_time_ns).toFixed(1)+'x' : '—';
-  document.getElementById('rc-speedup-val').textContent = speedup;
-
-  // Index status
-  document.getElementById('rc-ix-status').textContent = d.ann_searched ? `Index: ${d.index_type} | ANN scanned ${d.ann_candidates}/${d.bf_candidates}` : 'No index — comparing BF to BF (recall=100%)';
-
-  // ANN results
+  document.getElementById('rc-speedup-val').textContent = d.bf_time_ns>0&&d.ann_time_ns>0?(d.bf_time_ns/d.ann_time_ns).toFixed(1)+'x':'—';
+  document.getElementById('rc-ix-status').textContent = d.ann_searched?`${d.index_type} | ${d.ann_candidates}/${d.bf_candidates}`:'No index';
   document.getElementById('rc-compare').style.display = '';
-  document.getElementById('rc-ann-label').textContent = `(${d.ann_time_ns/1e3}µs, ${d.ann_candidates} candidates)`;
+  document.getElementById('rc-ann-label').textContent = `(${(d.ann_time_ns/1e3).toFixed(1)}µs)`;
   const bfSet = new Set((d.bf_results||[]).map(x=>x.id));
-  const annBody = document.getElementById('rc-ann-body');
-  annBody.innerHTML = (d.ann_results||[]).map((x,i) => {
-    const match = bfSet.has(x.id);
-    return `<tr class="${match?'match-hit':'match-miss'}"><td>${i+1}</td><td>${esc(x.id)}</td><td>${x.score.toFixed(6)}</td><td>${match?'✅':'❌'}</td></tr>`;
-  }).join('') || '<tr><td colspan="4">No ANN results</td></tr>';
-
-  const bfBody = document.getElementById('rc-bf-body');
-  bfBody.innerHTML = (d.bf_results||[]).map((x,i) => `<tr><td>${i+1}</td><td>${esc(x.id)}</td><td>${x.score.toFixed(6)}</td></tr>`).join('') || '<tr><td colspan="3">No BF results</td></tr>';
+  document.getElementById('rc-ann-body').innerHTML = (d.ann_results||[]).map((x,i)=>{const m=bfSet.has(x.id);return `<tr class="${m?'match-hit':'match-miss'}"><td>${i+1}</td><td>${esc(x.id)}</td><td>${x.score.toFixed(4)}</td><td>${m?'✅':'❌'}</td></tr>`;}).join('')||'<tr><td colspan="4">No results</td></tr>';
+  document.getElementById('rc-bf-body').innerHTML = (d.bf_results||[]).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.id)}</td><td>${x.score.toFixed(4)}</td></tr>`).join('')||'<tr><td colspan="3">No results</td></tr>';
 }
 
-// ======================== INDEX MANAGER ========================
+// ======================== INDEX ========================
 async function refreshIndex() {
   const col = document.getElementById('ix-col').value;
   if (!col) { document.getElementById('ix-status-txt').textContent = 'Select a collection'; return; }
   const r = await api('GET', `/collections/${encodeURIComponent(col)}/index`);
-  if (r.ok) {
-    document.getElementById('ix-status-txt').textContent = r.data.index_type ? `🟢 ${r.data.index_type}` : '🔴 No index';
-    document.getElementById('ix-info').textContent = JSON.stringify(r.data, null, 2);
-  }
+  document.getElementById('ix-status-txt').textContent = r.ok&&r.data.index_type ? `🟢 ${r.data.index_type}` : '🔴 No index';
+  document.getElementById('ix-info').textContent = r.ok ? JSON.stringify(r.data,null,2) : '';
 }
 async function doBuildIndex(type) {
   const col = document.getElementById('ix-col').value;
-  if (!col) { alert('Select a collection'); return; }
-  const r = await api('POST', `/collections/${encodeURIComponent(col)}/index`, { action: 'build', index_type: type });
-  document.getElementById('ix-info').textContent = JSON.stringify(r.data, null, 2);
-  if (r.ok) { refreshIndex(); refreshCollections(); }
+  if (!col) return alert('Select collection');
+  const r = await api('POST', `/collections/${encodeURIComponent(col)}/index`, {action:'build',index_type:type});
+  document.getElementById('ix-info').textContent = JSON.stringify(r.data,null,2);
+  if (r.ok) refreshIndex();
 }
 async function doDropIndex() {
   const col = document.getElementById('ix-col').value;
-  if (!col || !confirm(`Drop index on "${col}"?`)) return;
-  const r = await api('POST', `/collections/${encodeURIComponent(col)}/index`, { action: 'drop' });
-  document.getElementById('ix-info').textContent = JSON.stringify(r.data, null, 2);
-  if (r.ok) { refreshIndex(); refreshCollections(); }
+  if (!col||!confirm('Drop index?')) return;
+  const r = await api('POST', `/collections/${encodeURIComponent(col)}/index`, {action:'drop'});
+  document.getElementById('ix-info').textContent = JSON.stringify(r.data,null,2);
+  if (r.ok) refreshIndex();
 }
-document.getElementById('ix-col').addEventListener('change', refreshIndex);
+document.getElementById('ix-col')?.addEventListener('change', refreshIndex);
 
-// ======================== QUERY EXPLAINER ========================
-async function doExplain() {
-  const col = document.getElementById('ex-col').value;
-  const vec = document.getElementById('ex-vec').value.trim().split(',').map(s => parseFloat(s.trim()));
-  const k = parseInt(document.getElementById('ex-k').value) || 5;
-  if (!col || vec.some(isNaN)) { alert('Valid collection and query required'); return; }
-  let filter = {};
-  const filterStr = document.getElementById('ex-filter').value.trim();
-  if (filterStr) { try { filter = JSON.parse(filterStr); } catch(e) { alert('Invalid filter JSON'); return; } }
-  const r = await api('POST', `/collections/${encodeURIComponent(col)}/explain`, { query: vec, k, filter });
-  if (!r.ok) { alert(JSON.stringify(r.data)); return; }
-  const d = r.data;
-  document.getElementById('ex-report').style.display = '';
-  const body = document.getElementById('ex-body');
-  body.innerHTML = `
-    <tr><td>Index Type</td><td>${esc(d.index_type||'None (brute force)')}</td></tr>
-    <tr><td>Search Time</td><td>${(d.search_time_ns/1e6).toFixed(3)} ms</td></tr>
-    <tr><td>Top-K Requested</td><td>${d.top_k}</td></tr>
-    <tr><td>Candidates Evaluated</td><td>${d.candidates}</td></tr>
-    <tr><td>Results Returned</td><td>${d.results_returned}</td></tr>
-    <tr><td>Filter Applied</td><td>${esc(d.filter_applied||'None')}</td></tr>
-    <tr><td>Query Vector</td><td style="font-family:monospace;font-size:0.8rem">[${(d.query||[]).map(v=>v.toFixed(4)).join(', ')}]</td></tr>`;
-  const rbody = document.getElementById('ex-results-body');
-  const res = d.results||[];
-  rbody.innerHTML = res.length ? res.map((x,i) => `<tr><td>${i+1}</td><td>${esc(x.id)}</td><td><strong>${x.score.toFixed(6)}</strong></td><td>${x.document&&x.document.metadata?esc(JSON.stringify(x.document.metadata)):'—'}</td></tr>`).join('') : '<tr><td colspan="4">No results</td></tr>';
-}
-
-// ======================== API PLAYGROUND ========================
-async function sendAPI() {
-  const method = document.getElementById('api-method').value;
-  let path = document.getElementById('api-path').value.trim();
-  if (!path.startsWith('/')) path = '/' + path;
-  let body;
-  if (method === 'POST') {
-    const raw = document.getElementById('api-body').value.trim();
-    if (raw) { try { body = JSON.parse(raw); } catch(e) { alert('Invalid JSON body'); return; } }
-  }
-  // Show curl command
-  let curl = `curl -s -X ${method} http://localhost:8080${path}`;
-  if (method === 'POST') curl += ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify(body)}'`;
-  document.getElementById('api-curl-cmd').textContent = curl;
-
-  const r = await api(method, path, body);
-  document.getElementById('api-response').textContent = JSON.stringify(r.data, null, 2);
-}
-
-// ======================== INIT ========================
-async function init() {
-  await refreshCollections();
-  // Periodic refresh for dashboard
-  setInterval(refreshCollections, 10000);
-}
-init();
+refreshCollections();

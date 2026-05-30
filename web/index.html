@@ -8,156 +8,250 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="logo">🔍 Proximia Console</div>
+  <div class="logo">Proximia</div>
   <nav class="nav">
-    <button class="nav-btn active" data-view="dashboard">📊 Dashboard</button>
-    <button class="nav-btn" data-view="schema">📐 Schema</button>
-    <button class="nav-btn" data-view="data">🗄️ Data</button>
-    <button class="nav-btn" data-view="search">🔎 Search</button>
-    <button class="nav-btn" data-view="recall">🎯 Recall</button>
-    <button class="nav-btn" data-view="index">⚡ Index</button>
-    <button class="nav-btn" data-view="explain">🔬 Explain</button>
-    <button class="nav-btn" data-view="api">📡 API</button>
+    <button class="nav-btn active" data-view="dashboard">🏠 Home</button>
+    <button class="nav-btn" data-view="collections">📦 Collections</button>
+    <button class="nav-btn" data-view="documents">📄 Documents</button>
+    <button class="nav-btn" data-view="search">🔍 Search</button>
+    <button class="nav-btn" data-view="monitor">📊 Monitor</button>
   </nav>
 </header>
-
 <main id="app">
 
+<!-- ==================== HOME ==================== -->
 <section id="view-dashboard" class="view active">
-  <h2>📊 Dashboard</h2>
-  <div class="cards">
-    <div class="card"><h3>Collections</h3><div class="card-value" id="dash-collections">—</div></div>
-    <div class="card"><h3>Vectors</h3><div class="card-value" id="dash-vectors">—</div></div>
-    <div class="card"><h3>Indexed</h3><div class="card-value" id="dash-indexed">—</div></div>
-    <div class="card"><h3>Server</h3><div class="card-value" style="font-size:1rem;color:green">● Running</div></div>
-  </div>
-  <div class="quick-actions"><button onclick="switchView('schema')">📐 New Collection</button><button onclick="switchView('data')">🗄️ Add Data</button><button onclick="switchView('search')">🔎 Search</button><button onclick="switchView('recall')">🎯 Recall Check</button></div>
-  <div class="card" style="margin-top:1rem"><h3>Collections</h3><table><thead><tr><th>Name</th><th>Vectors</th><th>Dim</th><th>Metric</th><th>Index</th></tr></thead><tbody id="dash-table"><tr><td colspan="5">Loading...</td></tr></tbody></table></div>
-</section>
+  <div style="max-width:800px;margin:0 auto">
+    <h2 style="font-size:1.5rem">Welcome to Proximia</h2>
+    <p style="color:var(--text-secondary);margin-bottom:1.5rem">向量数据库管理控制台。按顺序完成三步开始使用。</p>
 
-<section id="view-schema" class="view">
-  <h2>📐 Schema Designer</h2>
-  <div class="card">
-    <div class="form-row"><input type="text" id="sc-name" placeholder="Collection name"><select id="sc-metric"><option>cosine</option><option>l2</option><option>ip</option></select><label><input type="checkbox" id="sc-index"> Build HNSW</label></div>
-    <h3>Fields</h3>
-    <table><thead><tr><th>Name</th><th>Type</th><th>Indexable</th></tr></thead><tbody id="sc-fields-body"><tr><td colspan="3">Add fields below</td></tr></tbody></table>
-    <div class="form-row">
-      <input type="text" id="sf-name" placeholder="field_name" style="flex:0 0 180px">
-      <select id="sf-type"><option>string</option><option>float</option><option>int</option><option>bool</option><option>text</option><option>geo</option></select>
-      <label><input type="checkbox" id="sf-indexable"> Indexable</label>
-      <button onclick="addField()">+ Add</button>
-    </div>
-    <button onclick="createWithSchema()" style="margin-top:0.5rem">🚀 Create</button>
-    <pre id="sc-result" class="result-box"></pre>
-  </div>
-</section>
-
-<section id="view-data" class="view">
-  <h2>🗄️ Data Manager</h2>
-  <div class="card">
-    <div class="form-row"><label>Collection</label><select id="da-collection"></select><button onclick="loadDataDocs()">🔄</button><span id="da-stats" class="stats"></span></div>
-  </div>
-  <div class="card"><h3>Upsert</h3>
-    <div class="form-row"><input type="text" id="da-id" placeholder="ID"><input type="text" id="da-vec" placeholder="0.1,0.2,0.3"></div>
-    <div class="form-row"><input type="text" id="da-meta" placeholder='{"category":"news"}'></div>
-    <button onclick="doUpsert()">Upsert</button><pre id="da-result" class="result-box"></pre>
-  </div>
-  <div class="card"><h3>Batch Upsert</h3>
-    <textarea id="da-batch" rows="3" placeholder='[{"id":"d1","vector":[0.1,0.2],"metadata":{"tag":"a"}}]' style="width:100%;font-family:monospace;font-size:0.85rem;padding:0.5rem;border:1px solid #ddd;border-radius:6px"></textarea>
-    <button onclick="doBatchUpsert()">Send</button><pre id="da-batch-result" class="result-box"></pre>
-  </div>
-</section>
-
-<section id="view-search" class="view">
-  <h2>🔎 Search Lab</h2>
-  <div class="card">
-    <div class="form-row"><label>Collection</label><select id="sr-collection"></select><select id="sr-mode"><option value="vector">Vector</option><option value="hybrid">Hybrid</option></select></div>
-    <div class="form-row" id="sr-vec-row"><input type="text" id="sr-vec" placeholder="Query vector (0.5,0.3,0.1)"></div>
-    <div class="form-row" id="sr-txt-row" style="display:none"><input type="text" id="sr-txt" placeholder="Text query for BM25"></div>
-    <div class="form-row">
-      <input type="number" id="sr-k" value="5" min="1" max="100" style="width:80px">
-      <input type="text" id="sr-filter" placeholder='Filter {"tag":"news"} or {"price":{"$gt":10}}' style="flex:2">
-      <input type="number" id="sr-alpha" value="0.5" min="0" max="1" step="0.1" style="width:70px;display:none">
-    </div>
-    <button onclick="doSearch()">🔎 Search</button><div id="sr-stats" class="stats"></div>
-  </div>
-  <div id="sr-results" style="display:none">
-    <table><thead><tr><th>#</th><th>ID</th><th>Score</th><th>Metadata</th></tr></thead><tbody id="sr-body"></tbody></table>
-    <div id="sr-bars" class="score-bars"></div>
-  </div>
-</section>
-
-<section id="view-recall" class="view">
-  <h2>🎯 Recall Analyzer</h2>
-  <div class="card">
-    <p class="stats">Compare ANN accuracy vs BruteForce. Test how well your index preserves exact nearest neighbors.</p>
-    <div class="form-row"><label>Collection</label><select id="rc-col"></select><input type="text" id="rc-vec" placeholder="Query vector (0.5,0.3,0.1)" style="flex:2"></div>
-    <div class="form-row"><input type="number" id="rc-k" value="10" min="1" max="100" style="width:80px"><span id="rc-ix-status" class="stats"></span></div>
-    <button onclick="doRecall()">🎯 Analyze</button>
-    <div id="rc-metrics" style="display:none">
-      <div class="cards" style="margin-top:1rem">
-        <div class="card" style="text-align:center"><div class="card-value" id="rc-recall-val">—</div><div>Recall@k</div></div>
-        <div class="card" style="text-align:center"><div class="card-value" id="rc-ann-lat">—</div><div>ANN (µs)</div></div>
-        <div class="card" style="text-align:center"><div class="card-value" id="rc-bf-lat">—</div><div>BF (µs)</div></div>
-        <div class="card" style="text-align:center"><div class="card-value" id="rc-speedup-val">—</div><div>Speedup</div></div>
+    <div class="cards">
+      <div class="card" style="cursor:pointer" onclick="switchView('collections')">
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <div style="background:var(--accent-light);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:1.2rem">1</div>
+          <div><strong>Create Collection</strong><div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.15rem">定义一个集合，设置向量维度和字段 Schema</div></div>
+        </div>
+      </div>
+      <div class="card" style="cursor:pointer" onclick="switchView('documents')">
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <div style="background:var(--accent-light);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:1.2rem">2</div>
+          <div><strong>Add Documents</strong><div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.15rem">写入向量数据，每条包含 ID + 向量 + 元数据</div></div>
+        </div>
+      </div>
+      <div class="card" style="cursor:pointer" onclick="switchView('search')">
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <div style="background:var(--accent-light);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:1.2rem">3</div>
+          <div><strong>Search</strong><div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.15rem">输入查询向量，找到最相似的结果</div></div>
+        </div>
       </div>
     </div>
-    <div id="rc-compare" style="display:none;margin-top:1rem">
-      <h3>ANN Results <span id="rc-ann-label" class="stats"></span></h3>
-      <table><thead><tr><th>#</th><th>ID</th><th>Score</th><th>Match</th></tr></thead><tbody id="rc-ann-body"></tbody></table>
-      <h3>BruteForce Results</h3>
-      <table><thead><tr><th>#</th><th>ID</th><th>Score</th></tr></thead><tbody id="rc-bf-body"></tbody></table>
+
+    <div class="card" style="background:#f0fdf4;border-color:#bbf7d0">
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <span style="font-weight:600">⚡ 快速体验：</span>
+        <button onclick="loadDemo()">加载演示数据（30 条商品）</button>
+        <span class="stats" id="demo-status"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Server Status</h3>
+      <div class="cards">
+        <div><strong>Collections</strong><div class="card-value" id="dash-collections" style="font-size:1.5rem">—</div></div>
+        <div><strong>Documents</strong><div class="card-value" id="dash-vectors" style="font-size:1.5rem">—</div></div>
+        <div><strong>Indexed</strong><div class="card-value" id="dash-indexed" style="font-size:1.5rem">—</div></div>
+        <div><div style="display:flex;align-items:center;gap:0.4rem;padding-top:0.5rem"><span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:50%"></span><span>Running</span></div></div>
+      </div>
     </div>
   </div>
 </section>
 
-<section id="view-index" class="view">
-  <h2>⚡ Index Manager</h2>
-  <div class="card">
-    <div class="form-row"><label>Collection</label><select id="ix-col"></select></div>
-    <div id="ix-status"><strong>Status</strong>: <span id="ix-status-txt">Select a collection</span></div>
-    <div class="quick-actions" style="margin-top:0.75rem">
-      <button onclick="doBuildIndex('hnsw')">🔨 HNSW</button>
-      <button onclick="doBuildIndex('ivf')">🔨 IVF</button>
-      <button onclick="doDropIndex()" class="danger">🗑️ Drop</button>
-      <button onclick="refreshIndex()">🔄</button>
+<!-- ==================== COLLECTIONS ==================== -->
+<section id="view-collections" class="view">
+  <div style="max-width:800px;margin:0 auto">
+    <h2>Collections</h2>
+    <p style="color:var(--text-secondary);margin-bottom:1rem">集合是向量数据的容器，类似数据库中的表。每个集合有自己的向量维度和距离度量方式。</p>
+
+    <div class="card">
+      <h3>Create Collection</h3>
+      <div class="form-row">
+        <input type="text" id="sc-name" placeholder="Collection name, e.g. products">
+        <select id="sc-metric"><option value="cosine">cosine（余弦相似度）</option><option value="l2">l2（欧氏距离）</option><option value="ip">ip（内积）</option></select>
+      </div>
+      <div class="form-row">
+        <label><input type="checkbox" id="sc-index"> 创建后自动建立 HNSW 索引（推荐）</label>
+      </div>
+
+      <details style="margin:0.75rem 0;border:1px solid var(--border);border-radius:8px;padding:0.75rem">
+        <summary style="cursor:pointer;font-weight:500;font-size:0.85rem;color:var(--text-secondary)">📋 定义字段类型（Schema，可选）</summary>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0.5rem 0">标记 Indexable 的字段会自动建立倒排索引，搜索时先过滤再检索，大幅提升带条件查询的性能。</p>
+        <table><thead><tr><th>Field</th><th>Type</th><th>Indexable</th></tr></thead><tbody id="sc-fields-body"><tr><td colspan="3" style="color:#94a3b8">添加字段</td></tr></tbody></table>
+        <div class="form-row" style="margin-top:0.5rem">
+          <input type="text" id="sf-name" placeholder="field name" style="flex:0 0 150px">
+          <select id="sf-type" style="flex:0 0 120px"><option>string</option><option>float</option><option>int</option><option>bool</option><option>text</option><option>geo</option></select>
+          <label><input type="checkbox" id="sf-indexable"> Indexable</label>
+          <button class="secondary" onclick="addField()" style="padding:0.3rem 0.7rem">+ Add</button>
+        </div>
+      </details>
+
+      <button onclick="createWithSchema()">Create Collection</button>
+      <pre id="sc-result" class="result-box"></pre>
     </div>
-    <pre id="ix-info" class="result-box"></pre>
-  </div>
-  <div class="card"><h3>HNSW Tuning</h3><div class="form-row"><label>M</label><input type="number" id="ix-m" value="16"><span class="stats">connections/node</span></div>
-    <div class="form-row"><label>efConstruction</label><input type="number" id="ix-efc" value="200"><span class="stats">build quality</span></div>
-    <div class="form-row"><label>efSearch</label><input type="number" id="ix-efs" value="100"><span class="stats">query recall</span></div>
-  </div>
-  <div class="card"><h3>IVF Tuning</h3><div class="form-row"><label>Centroids</label><input type="number" id="ix-nc" value="100"></div>
-    <div class="form-row"><label>nProbe</label><input type="number" id="ix-np" value="5"><span class="stats">clusters to probe</span></div>
+
+    <div class="card">
+      <h3>Existing Collections</h3>
+      <table><thead><tr><th>Name</th><th>Documents</th><th>Dimension</th><th>Metric</th><th>Index</th><th>Schema</th></tr></thead><tbody id="collections-table"><tr><td colspan="6" style="color:#94a3b8">No collections yet</td></tr></tbody></table>
+    </div>
   </div>
 </section>
 
-<section id="view-explain" class="view">
-  <h2>🔬 Query Explainer</h2>
-  <div class="card">
-    <div class="form-row"><label>Collection</label><select id="ex-col"></select></div>
-    <div class="form-row"><input type="text" id="ex-vec" placeholder="Query vector (0.5,0.3,0.1)" style="flex:2"></div>
-    <div class="form-row"><input type="number" id="ex-k" value="5" min="1" max="100" style="width:80px"><input type="text" id="ex-filter" placeholder='{"tag":"news"}' style="flex:1"></div>
-    <button onclick="doExplain()">🔬 Explain</button>
-  </div>
-  <div id="ex-report" style="display:none">
-    <div class="card"><h3>Execution Plan</h3><table><tbody id="ex-body"></tbody></table></div>
-    <table><thead><tr><th>#</th><th>ID</th><th>Score</th><th>Metadata</th></tr></thead><tbody id="ex-results-body"></tbody></table>
+<!-- ==================== DOCUMENTS ==================== -->
+<section id="view-documents" class="view">
+  <div style="max-width:800px;margin:0 auto">
+    <h2>Documents</h2>
+    <p style="color:var(--text-secondary);margin-bottom:1rem">文档是向量数据库中的基本单元。每个文档包含：<strong>唯一 ID</strong> + <strong>向量（float 数组，表示语义）</strong> + <strong>元数据（结构化字段）</strong>。</p>
+
+    <div class="card" style="padding:0.5rem 1rem;background:#f8fafc">
+      <div class="form-row" style="margin-bottom:0">
+        <label style="min-width:auto">Select Collection</label>
+        <select id="da-collection"></select>
+        <button class="secondary" onclick="loadDataDocs()" style="padding:0.3rem 0.7rem">↻ Refresh</button>
+        <span id="da-stats" class="stats"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Add Single Document</h3>
+      <div class="form-row">
+        <input type="text" id="da-id" placeholder='ID, e.g. "prod_001"'>
+        <input type="text" id="da-vec" placeholder='Vector, e.g. "0.15, 0.72, 0.33"'>
+      </div>
+      <div class="form-row">
+        <input type="text" id="da-meta" placeholder='Metadata JSON, e.g. {"name":"iPhone","price":5999,"category":"electronics"}'>
+      </div>
+      <button onclick="doUpsert()">Upload</button>
+      <pre id="da-result" class="result-box"></pre>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--text-secondary)">📦 Batch Upload（批量写入）</summary>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0.5rem 0">JSON 数组格式，支持一次性写入多条文档。</p>
+        <textarea id="da-batch" rows="4" style="width:100%;font-size:0.85rem;font-family:monospace">[
+  {"id":"prod_001","vector":[0.15,0.72,0.33],"metadata":{"name":"Wireless Mouse","price":29.99,"category":"electronics"}},
+  {"id":"prod_002","vector":[0.88,0.12,0.45],"metadata":{"name":"Running Shoes","price":89.99,"category":"sports"}},
+  {"id":"prod_003","vector":[0.45,0.55,0.78],"metadata":{"name":"Coffee Maker","price":49.99,"category":"home"}}
+]</textarea>
+        <div style="margin-top:0.5rem"><button onclick="doBatchUpsert()">Upload All</button></div>
+        <pre id="da-batch-result" class="result-box"></pre>
+      </details>
+    </div>
   </div>
 </section>
 
-<section id="view-api" class="view">
-  <h2>📡 API Playground</h2>
-  <div class="card">
-    <div class="form-row">
-      <select id="api-method" style="width:100px"><option>GET</option><option>POST</option><option>DELETE</option></select>
-      <input type="text" id="api-path" value="/collections" style="flex:2;font-family:monospace">
+<!-- ==================== SEARCH ==================== -->
+<section id="view-search" class="view">
+  <div style="max-width:800px;margin:0 auto">
+    <h2>Search</h2>
+    <p style="color:var(--text-secondary);margin-bottom:1rem">输入一个查询向量（或一段文本），Proximia 会找到最相似的文档。结果按相似度得分从高到低排列。</p>
+
+    <div class="card">
+      <div class="form-row">
+        <label style="min-width:auto">Collection</label>
+        <select id="sr-collection" style="max-width:200px"></select>
+        <select id="sr-mode" style="max-width:150px">
+          <option value="vector">Vector Search</option>
+          <option value="hybrid">Hybrid (vector+text)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label style="min-width:auto">Query Vector</label>
+        <input type="text" id="sr-vec" placeholder='e.g. 0.5, 0.3, 0.1 (向量值，逗号分隔)'>
+      </div>
+      <div class="form-row" id="sr-txt-row" style="display:none">
+        <label style="min-width:auto">Text</label>
+        <input type="text" id="sr-txt" placeholder="e.g. 'wireless mouse'（文本查询词）">
+      </div>
+      <div class="form-row">
+        <label style="min-width:auto">Top-K</label>
+        <input type="number" id="sr-k" value="5" min="1" max="100" style="width:70px">
+        <label style="min-width:auto">Filter</label>
+        <input type="text" id="sr-filter" placeholder='e.g. {"category":"electronics"} 或 {"price":{"$gt":10}}'>
+        <label style="min-width:auto;display:none" id="sr-alpha-label">Alpha</label>
+        <input type="number" id="sr-alpha" value="0.5" min="0" max="1" step="0.1" style="width:60px;display:none">
+      </div>
+      <button onclick="doSearch()">🔍 Search</button>
+      <div id="sr-stats" class="stats" style="margin-top:0.5rem"></div>
     </div>
-    <div class="form-row"><textarea id="api-body" rows="3" placeholder='JSON body (for POST)' style="width:100%;font-family:monospace;font-size:0.85rem;padding:0.5rem;border:1px solid #ddd;border-radius:6px;display:none"></textarea></div>
-    <button onclick="sendAPI()">▶ Send</button>
-    <pre id="api-curl-cmd" class="result-box" style="max-height:50px"></pre>
-    <pre id="api-response" class="result-box" style="min-height:100px"></pre>
+
+    <div id="sr-results" style="display:none">
+      <h3>Results</h3>
+      <table><thead><tr><th>Rank</th><th>ID</th><th>Score</th><th>Metadata</th></tr></thead><tbody id="sr-body"></tbody></table>
+      <div id="sr-bars" class="score-bars"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MONITOR ==================== -->
+<section id="view-monitor" class="view">
+  <div style="max-width:800px;margin:0 auto">
+    <h2>Monitor</h2>
+    <p style="color:var(--text-secondary);margin-bottom:1rem">性能监控与索引质量评估。</p>
+
+    <div class="card">
+      <h3>System Metrics</h3>
+      <div class="cards">
+        <div><strong>Collections</strong><div class="card-value" id="mon-collections" style="font-size:1.5rem">—</div></div>
+        <div><strong>Total Documents</strong><div class="card-value" id="mon-vectors" style="font-size:1.5rem">—</div></div>
+        <div><strong>Indexed</strong><div class="card-value" id="mon-indexed" style="font-size:1.5rem">—</div></div>
+      </div>
+      <button onclick="refreshMonitor()" class="secondary" style="margin-top:0.5rem">↻ Refresh</button>
+    </div>
+
+    <div class="card">
+      <h3>Recall Test</h3>
+      <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem">对比 ANN 索引与暴力搜索的结果重合度。Recall@k = ANN 结果中有多少个在 BF top-k 中。用来调优 efSearch / nProbe 参数。</p>
+      <div class="form-row">
+        <label style="min-width:auto">Collection</label>
+        <select id="rc-col" style="max-width:200px"></select>
+        <input type="text" id="rc-vec" placeholder="Query vector" style="flex:1">
+      </div>
+      <div class="form-row">
+        <input type="number" id="rc-k" value="10" min="1" max="100" style="width:70px">
+        <span id="rc-ix-status" class="stats"></span>
+        <button onclick="doRecall()">Test Recall</button>
+      </div>
+      <div id="rc-metrics" style="display:none;margin-top:0.75rem">
+        <div class="cards">
+          <div style="text-align:center;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)"><div class="card-value" id="rc-recall-val">—</div><div style="font-size:0.82rem;color:var(--text-secondary)">Recall@k</div></div>
+          <div style="text-align:center;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)"><div class="card-value" id="rc-ann-lat">—</div><div style="font-size:0.82rem;color:var(--text-secondary)">ANN (µs)</div></div>
+          <div style="text-align:center;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)"><div class="card-value" id="rc-bf-lat">—</div><div style="font-size:0.82rem;color:var(--text-secondary)">BF (µs)</div></div>
+          <div style="text-align:center;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)"><div class="card-value" id="rc-speedup-val">—</div><div style="font-size:0.82rem;color:var(--text-secondary)">Speedup</div></div>
+        </div>
+      </div>
+      <div id="rc-compare" style="display:none;margin-top:0.75rem">
+        <div><h3 style="margin-bottom:0">ANN Results <span id="rc-ann-label" class="stats"></span></h3>
+        <table><thead><tr><th>#</th><th>ID</th><th>Score</th><th>Match</th></tr></thead><tbody id="rc-ann-body"></tbody></table></div>
+        <div style="margin-top:0.75rem"><h3 style="margin-bottom:0">BruteForce Results</h3>
+        <table><thead><tr><th>#</th><th>ID</th><th>Score</th></tr></thead><tbody id="rc-bf-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary style="cursor:pointer;font-weight:600;font-size:0.85rem;color:var(--text-secondary)">⚡ Index Management</summary>
+        <div style="margin-top:0.75rem">
+          <div class="form-row"><label>Collection</label><select id="ix-col" style="max-width:200px"></select></div>
+          <div style="background:#f8fafc;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.75rem"><span id="ix-status-txt">Select a collection</span></div>
+          <div class="quick-actions">
+            <button onclick="doBuildIndex('hnsw')">Build HNSW Index</button>
+            <button onclick="doBuildIndex('ivf')">Build IVF Index</button>
+            <button onclick="doDropIndex()" class="danger">Drop Index</button>
+          </div>
+          <pre id="ix-info" class="result-box"></pre>
+        </div>
+      </details>
+    </div>
   </div>
 </section>
 
