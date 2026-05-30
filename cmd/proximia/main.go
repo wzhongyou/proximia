@@ -211,9 +211,16 @@ func main() {
 		db.Close()
 	}()
 
-	log.Printf("proximia server listening on %s", cfg.Server.Addr)
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatal(err)
+	if cfg.Server.TLSEnabled() {
+		log.Printf("proximia server listening on %s (TLS)", cfg.Server.Addr)
+		if err := srv.ListenAndServeTLS(cfg.Server.TLSCertFile, cfg.Server.TLSKeyFile); err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	} else {
+		log.Printf("proximia server listening on %s", cfg.Server.Addr)
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
 	}
 	log.Println("server stopped")
 }

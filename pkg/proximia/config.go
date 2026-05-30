@@ -28,6 +28,13 @@ type ServerConfig struct {
 	APIKeys       []string `json:"api_keys" yaml:"api_keys"`
 	CORSOrigins   []string `json:"cors_origins" yaml:"cors_origins"`
 	MaxConcurrent int      `json:"max_concurrent" yaml:"max_concurrent"`
+	TLSKeyFile    string   `json:"tls_key_file" yaml:"tls_key_file"`
+	TLSCertFile   string   `json:"tls_cert_file" yaml:"tls_cert_file"`
+}
+
+// TLSEnabled returns true if both cert and key files are configured.
+func (s *ServerConfig) TLSEnabled() bool {
+	return s.TLSCertFile != "" && s.TLSKeyFile != ""
 }
 
 // DatabaseConfig holds database engine settings.
@@ -132,5 +139,11 @@ func applyEnvOverrides(cfg *Config) {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.Server.WriteTimeout = n
 		}
+	}
+	if v := os.Getenv("PROXIMIA_TLS_CERT_FILE"); v != "" {
+		cfg.Server.TLSCertFile = v
+	}
+	if v := os.Getenv("PROXIMIA_TLS_KEY_FILE"); v != "" {
+		cfg.Server.TLSKeyFile = v
 	}
 }
