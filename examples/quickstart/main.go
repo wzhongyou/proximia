@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/wzhongyou/proximia/pkg/proximia"
+	"github.com/wzhongyou/proximia"
 )
 
 func main() {

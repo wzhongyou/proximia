@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,11 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/wzhongyou/proximia/pkg/proximia"
+	"github.com/wzhongyou/proximia"
 )
 
-//go:embed web/index.html web/style.css web/app.js
-var webFiles embed.FS
 
 // ============================================================
 // Request / Response Types
@@ -160,7 +157,7 @@ func main() {
 	}
 
 	// Extract web files
-	webSubFS, err := fs.Sub(webFiles, "web")
+	webSubFS, err := fs.Sub(proximia.WebFiles, "web")
 	if err != nil {
 		log.Fatalf("failed to create web sub filesystem: %v", err)
 	}
@@ -765,7 +762,7 @@ func (s *server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" { notFound(w); return }
-	data, err := webFiles.ReadFile("web/index.html")
+	data, err := proximia.WebFiles.ReadFile("web/index.html")
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "console not found"})
 		return

@@ -54,7 +54,7 @@ curl -s -X POST http://localhost:8080/collections/demo/hybrid-search \
 
 Proximia 不是 Milvus 或 Qdrant 的替代品。适用场景：
 
-- **嵌入使用**：`import "github.com/wzhongyou/proximia/pkg/proximia"` 在进程内调用
+- **嵌入使用**：`import "github.com/wzhongyou/proximia"` 在进程内调用
 - **边缘/私有部署**：单二进制，无需 Kubernetes、etcd、对象存储
 - **CI/测试环境**：`go run` 秒级启动，无需 Docker
 - **中小规模**：百万级以下向量，单节点够用
@@ -181,7 +181,7 @@ proximia -config ./example_config.yaml
 ## Go SDK 使用
 
 ```go
-import "github.com/wzhongyou/proximia/pkg/proximia"
+import "github.com/wzhongyou/proximia"
 
 db, _ := proximia.NewVectorDatabase("demo.wal")
 defer db.Close()
@@ -226,6 +226,18 @@ hybrid := db.HybridSearch("docs", []float64{0.8, 0.2, 0.1}, "news", 5, 0.7, nil)
 | Index | 构建/删除索引、调节 HNSW/IVF 参数 |
 | Explain | 查看搜索执行计划、耗时分布 |
 | API | 交互式 curl 命令生成 |
+
+## 项目结构
+
+```
+├── *.go                引擎核心（13 文件，包名 proximia）
+├── web/                控制台前端（HTML/CSS/JS）
+├── cmd/proximia/       HTTP 服务入口
+├── examples/quickstart Go SDK 示例
+├── Dockerfile          多阶段构建
+├── docker-compose.yml  单节点部署
+└── example_config.yaml 配置示例
+```
 
 ## 能力总览
 
